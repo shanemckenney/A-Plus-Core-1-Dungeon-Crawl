@@ -95,6 +95,11 @@
   .answer-count{color:var(--ink-dim);margin-top:16px;font-size:0.85rem;font-family:'EB Garamond',serif;}
   .room-code-banner{color:#4a3826;font-size:0.9rem;margin-bottom:4px;font-family:'EB Garamond',serif;}
   .room-code{color:#5c1414;font-size:1.9rem;font-weight:700;letter-spacing:0.25em;}
+  /* variant for titles/text sitting directly on the dark stone background (not a parchment card) */
+  .on-stone .torch-title{color:var(--gold-bright);text-shadow:0 0 18px rgba(224,179,77,0.5), 0 2px 3px rgba(0,0,0,0.8);}
+  .on-stone .subtitle{color:#e2d4ac;}
+  .on-stone .room-code-banner{color:#e2d4ac;}
+  .on-stone .room-code{color:var(--gold-bright);text-shadow:0 0 14px rgba(224,179,77,0.5);}
   .lobby-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;justify-content:center;}
   .lobby-chip{background:var(--wood-dark);border:2px solid var(--wood);border-radius:20px;padding:8px 16px;font-size:0.9rem;color:var(--parchment);}
   .leaderboard-row{display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--wood);font-family:'EB Garamond',serif;font-size:1.1rem;}
@@ -335,7 +340,12 @@ function listenToRoom(){
     gameState = snap.val();
     if(!gameState) return;
     maybePlayTransitionSound(gameState);
-    if(view.startsWith("host")) render();
+    if(view.startsWith("host")){
+      if(gameState.status === "lobby") view = "host-lobby";
+      else if(gameState.status === "end") view = "host-end";
+      else view = "host-game";
+      render();
+    }
     if(view.startsWith("player")) renderPlayerFromState();
   });
 }
@@ -497,7 +507,7 @@ const VIEWS = {
     const players = (gameState && gameState.players) ? Object.values(gameState.players) : [];
     app.innerHTML = `
       <div class="host-wrap">
-        <div class="center" style="min-height:auto;padding-top:40px;">
+        <div class="center on-stone" style="min-height:auto;padding-top:40px;">
           <h1 class="torch-title">The dungeon awaits</h1>
           <div class="room-code-banner">Students join at your app URL and enter code:</div>
           <div class="room-code">${roomCode}</div>
@@ -573,7 +583,7 @@ const VIEWS = {
     const players = Object.values(gameState.players||{}).sort((a,b)=>(b.score||0)-(a.score||0));
     app.innerHTML = `
       <div class="host-wrap">
-        <div class="center" style="min-height:auto;padding-top:40px;">
+        <div class="center on-stone" style="min-height:auto;padding-top:40px;">
           <h1 class="torch-title">👑 The Ticket Queue Lich falls</h1>
           <div class="subtitle">Final standings</div>
           <div class="card" style="max-width:500px;">
