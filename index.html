@@ -424,12 +424,13 @@ async function hostRevealAndScore(){
    PLAYER FLOW
    ============================================================ */
 async function playerJoin(code, name){
+  code = (code || "").trim().toUpperCase();
   const snap = await db.ref("dungeonCrawl/"+code).once("value");
   if(!snap.exists()){
     alert("No dungeon found with that code. Double check it with your DM.");
     return false;
   }
-  roomCode = code.toUpperCase();
+  roomCode = code;
   playerId = "p_" + Math.random().toString(36).slice(2,10);
   playerName = name;
   await db.ref(`dungeonCrawl/${roomCode}/players/${playerId}`).set({
