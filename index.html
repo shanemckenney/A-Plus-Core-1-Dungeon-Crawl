@@ -84,6 +84,7 @@
   .bar-fill.hp-monster{background:repeating-linear-gradient(115deg, var(--arcane) 0 8px, var(--arcane-bright) 8px 16px);}
   .monster-name{color:#5a2e80;font-size:1.4rem;font-family:'MedievalSharp',cursive;}
   .monster-portrait{display:block;max-width:100%;max-height:220px;margin:0 auto 12px;border-radius:4px;filter:drop-shadow(0 8px 20px rgba(0,0,0,0.6));}
+  .monster-portrait-large{max-height:320px;}
 
   .question-panel{background:linear-gradient(160deg,var(--parchment),var(--parchment-2));color:var(--ink);border:3px solid var(--wood);border-radius:4px;padding:32px;text-align:center;box-shadow:0 0 0 1px var(--gold) inset, 0 10px 30px rgba(0,0,0,0.5);}
   .question-text{font-size:1.6rem;margin-bottom:24px;font-family:'EB Garamond',serif;}
@@ -118,10 +119,19 @@
   .shape-btn{aspect-ratio:1;border-radius:10px;border:2px solid rgba(0,0,0,0.3);font-size:2.5rem;color:#fff;}
   .shape-btn:disabled{opacity:0.35;}
   .waiting-msg{color:#c9b98f;margin-top:60px;font-size:1.1rem;font-family:'EB Garamond',serif;font-style:italic;}
+  .card .waiting-msg{color:#5c4a32;margin-top:24px;}
   .result-banner{font-size:1.4rem;margin:20px 0;padding:16px;border-radius:6px;font-family:'MedievalSharp',cursive;}
   .result-correct{background:rgba(47,90,47,0.25);color:#8fdb8f;border:2px solid var(--good-bright);}
   .result-wrong{background:rgba(122,31,31,0.25);color:#ff9a9a;border:2px solid var(--hp-bright);}
   .small-note{color:#5c4a32;font-size:0.75rem;margin-top:20px;font-family:'EB Garamond',serif;}
+
+  /* ROOM RESULT (victory/defeat) SCREEN */
+  .result-hero{max-width:520px;}
+  .result-icon{font-size:3.6rem;margin-bottom:10px;display:block;filter:drop-shadow(0 0 14px rgba(0,0,0,0.6));}
+  .result-hero.victory .result-icon{filter:drop-shadow(0 0 20px rgba(79,143,79,0.7));}
+  .result-hero.defeat .result-icon{filter:drop-shadow(0 0 20px rgba(184,50,50,0.7));}
+  .result-hero.victory .torch-title{color:#7ee08a;text-shadow:0 0 18px rgba(79,143,79,0.5), 0 2px 3px rgba(0,0,0,0.8);}
+  .result-hero.defeat .torch-title{color:#ff8a8a;text-shadow:0 0 18px rgba(184,50,50,0.5), 0 2px 3px rgba(0,0,0,0.8);}
 </style>
 </head>
 <body>
@@ -254,6 +264,7 @@ function sfxHit(){ tone(659, 0.12, 'sine'); tone(880, 0.15, 'sine', 0.1); tone(1
 function sfxMiss(){ tone(220, 0.25, 'sawtooth', 0, 0.14); tone(165, 0.3, 'sawtooth', 0.1, 0.14); }
 function sfxRoomCleared(){ tone(523, 0.15, 'triangle'); tone(659, 0.15, 'triangle', 0.15); tone(784, 0.28, 'triangle', 0.3); }
 function sfxVictory(){ [523,659,784,1047].forEach((f,i)=> tone(f, 0.32, 'triangle', i*0.18)); }
+function sfxMonsterReveal(){ tone(110, 0.5, 'sawtooth', 0, 0.1); tone(146.83, 0.5, 'sawtooth', 0.06, 0.1); }
 
 /* Tracks the last state transition we already played a sound for,
    so the same cue doesn't replay every time Firebase pushes a value. */
@@ -274,9 +285,13 @@ function maybePlayTransitionSound(state){
     } else {
       sfxQuestionStart();
     }
+  } else if(state.status === "room-intro"){
+    sfxMonsterReveal();
   } else if(state.status === "reveal"){
     const hitLanded = lastKnownMonsterHP !== null && state.monsterHP < lastKnownMonsterHP;
     if(hitLanded) sfxHit(); else sfxMiss();
+  } else if(state.status === "room-result"){
+    if(state.roomOutcome === "victory") sfxRoomCleared(); else sfxMiss();
   } else if(state.status === "end"){
     sfxVictory();
   }
@@ -286,6 +301,7 @@ function maybePlayTransitionSound(state){
 }
 
 const SHAPES = ["▲","◆","●","■"];
+const PARTY_IMAGE = "cyber-warrior-crest.png";
 const QUESTION_TIME = 20; // seconds
 const BASE_DAMAGE = 100;
 const MONSTER_HP_PER_Q = 100; // total monster HP = questions.length * this
@@ -351,7 +367,11 @@ function listenToRoom(){
 }
 
 async function hostStartGame(){
-  await db.ref("dungeonCrawl/"+roomCode).update({status:"question", questionIndex:0, questionStartedAt: Date.now()});
+  await db.ref("dungeonCrawl/"+roomCode).update({status:"room-intro"});
+}
+
+async function hostBeginEncounter(){
+  await db.ref("dungeonCrawl/"+roomCode).update({status:"question", questionStartedAt: Date.now()});
 }
 
 async function hostAdvance(){
@@ -360,22 +380,8 @@ async function hostAdvance(){
   const isLastQInRoom = state.questionIndex >= room.questions.length - 1;
 
   if(state.monsterHP <= 0 || isLastQInRoom){
-    // room cleared or ran out of questions -> next room
-    const isLastRoom = state.roomIndex >= allRoomsWithBoss().length - 1;
-    if(isLastRoom){
-      await db.ref("dungeonCrawl/"+roomCode).update({status:"end"});
-      return;
-    }
-    const nextRoomIdx = state.roomIndex + 1;
-    const nextRoom = allRoomsWithBoss()[nextRoomIdx];
-    await db.ref("dungeonCrawl/"+roomCode).update({
-      status:"question",
-      roomIndex: nextRoomIdx,
-      questionIndex: 0,
-      monsterHP: nextRoom.questions.length * MONSTER_HP_PER_Q,
-      partyHP: Math.min(500, state.partyHP + 150),
-      questionStartedAt: Date.now()
-    });
+    const outcome = state.monsterHP <= 0 ? "victory" : "defeat";
+    await db.ref("dungeonCrawl/"+roomCode).update({status:"room-result", roomOutcome: outcome});
   } else {
     await db.ref("dungeonCrawl/"+roomCode).update({
       status:"question",
@@ -383,6 +389,25 @@ async function hostAdvance(){
       questionStartedAt: Date.now()
     });
   }
+}
+
+async function hostContinueAfterResult(){
+  const state = gameState;
+  const isLastRoom = state.roomIndex >= allRoomsWithBoss().length - 1;
+  if(isLastRoom){
+    await db.ref("dungeonCrawl/"+roomCode).update({status:"end"});
+    return;
+  }
+  const nextRoomIdx = state.roomIndex + 1;
+  const nextRoom = allRoomsWithBoss()[nextRoomIdx];
+  await db.ref("dungeonCrawl/"+roomCode).update({
+    status:"room-intro",
+    roomIndex: nextRoomIdx,
+    questionIndex: 0,
+    monsterHP: nextRoom.questions.length * MONSTER_HP_PER_Q,
+    partyHP: Math.min(500, state.partyHP + 150),
+    roomOutcome: null
+  });
 }
 
 async function hostRevealAndScore(){
@@ -525,6 +550,18 @@ const VIEWS = {
 
   "host-game"(){
     if(!gameState){ app.innerHTML = "<div class='center'>Loading...</div>"; return; }
+    if(gameState.status === "room-result"){
+      app.innerHTML = `<div class="host-wrap">${roomResultMarkup(true)}</div>`;
+      const continueBtn = document.getElementById("continueBtn");
+      if(continueBtn) continueBtn.onclick = ()=> hostContinueAfterResult();
+      return;
+    }
+    if(gameState.status === "room-intro"){
+      app.innerHTML = `<div class="host-wrap">${roomIntroMarkup(true)}</div>`;
+      const beginBtn = document.getElementById("beginEncounterBtn");
+      if(beginBtn) beginBtn.onclick = ()=> hostBeginEncounter();
+      return;
+    }
     const rooms = allRoomsWithBoss();
     const room = rooms[gameState.roomIndex];
     const q = room.questions[gameState.questionIndex];
@@ -544,6 +581,7 @@ const VIEWS = {
 
         <div class="battle-row">
           <div class="stat-panel">
+            <img class="monster-portrait" src="${encodeURI(PARTY_IMAGE)}" alt="Cyber Warrior Party" onerror="this.style.display='none'">
             <div>🛡️ Party HP</div>
             <div class="bar-track"><div class="bar-fill hp-party" style="width:${Math.max(0,gameState.partyHP)/500*100}%"></div></div>
           </div>
@@ -658,6 +696,16 @@ const VIEWS = {
       view = "player-end"; render(); return;
     }
 
+    if(gameState.status === "room-result"){
+      app.innerHTML = `<div class="player-wrap">${roomResultMarkup(false)}</div>`;
+      return;
+    }
+
+    if(gameState.status === "room-intro"){
+      app.innerHTML = `<div class="player-wrap">${roomIntroMarkup(false)}</div>`;
+      return;
+    }
+
     let body = "";
     if(gameState.status === "question"){
       if(hasAnsweredThisQuestion){
@@ -712,6 +760,46 @@ const VIEWS = {
       </div>`;
   }
 };
+
+function roomIntroMarkup(forHost){
+  const rooms = allRoomsWithBoss();
+  const room = rooms[gameState.roomIndex];
+  return `
+    <div class="corridor">
+      ${rooms.map((r,i)=>`
+        <div class="door ${i===gameState.roomIndex?'current':(i<gameState.roomIndex?'cleared':'')}">
+          <span class="torch-flame">🔥</span>
+          <span class="door-icon">${r.icon}</span>
+          <div class="door-label">${r.name}</div>
+        </div>`).join("")}
+    </div>
+    <div class="question-panel">
+      <img class="monster-portrait monster-portrait-large" src="${encodeURI(room.image)}" alt="${escapeHtml(room.monster)}" onerror="this.style.display='none'">
+      <h2 class="monster-name" style="margin:8px 0 4px;">${escapeHtml(room.monster)}</h2>
+      <div class="subtitle" style="color:var(--ink-dim);">${escapeHtml(room.name)}</div>
+      ${forHost
+        ? `<button class="btn btn-gold" id="beginEncounterBtn" style="max-width:300px;margin:24px auto 0;">Begin Encounter</button>`
+        : `<div class="waiting-msg" style="margin-top:24px;">Your Dungeon Master is setting the scene...</div>`}
+    </div>`;
+}
+
+function roomResultMarkup(forHost){
+  const rooms = allRoomsWithBoss();
+  const room = rooms[gameState.roomIndex];
+  const isVictory = gameState.roomOutcome === "victory";
+  const isLastRoom = gameState.roomIndex >= rooms.length - 1;
+  return `
+    <div class="center on-stone" style="min-height:auto;padding-top:60px;">
+      <div class="result-hero ${isVictory ? 'victory' : 'defeat'}">
+        <span class="result-icon">${isVictory ? '⚔️' : '💀'}</span>
+        <h1 class="torch-title">${isVictory ? escapeHtml(room.monster) + ' is vanquished' : escapeHtml(room.monster) + ' slips away'}</h1>
+        <div class="subtitle">${isVictory ? 'The party presses onward.' : "It escapes into the dark — you'll meet again another night."}</div>
+        ${forHost
+          ? `<button class="btn btn-gold" id="continueBtn" style="max-width:300px;margin:20px auto 0;">${isLastRoom ? 'See Final Results' : 'Continue to Next Room'}</button>`
+          : `<div class="waiting-msg">Waiting for the Dungeon Master to continue...</div>`}
+      </div>
+    </div>`;
+}
 
 function classIcon(id){
   const c = CLASSES.find(c=>c.id===id);
