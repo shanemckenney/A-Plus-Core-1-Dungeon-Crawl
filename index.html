@@ -62,6 +62,7 @@
   .class-card.selected{border-color:var(--gold);box-shadow:0 0 14px rgba(184,137,43,0.45);}
   .class-icon{font-size:2rem;display:block;margin-bottom:6px;}
   .class-name{font-size:0.75rem;color:var(--ink-dim);}
+  .class-specialty{font-size:0.62rem;color:var(--gold);margin-top:2px;font-style:italic;font-family:'EB Garamond',serif;}
 
   /* HOST SCREEN — the shared "gameboard" */
   .host-wrap{padding:24px 32px;max-width:1200px;margin:0 auto;width:100%;}
@@ -143,6 +144,10 @@
   .final-blow-track{position:relative;height:26px;}
   .final-blow-fill{background:repeating-linear-gradient(115deg, var(--hp) 0 8px, var(--hp-bright) 8px 16px);}
   .final-blow-threshold{position:absolute;left:75%;top:-4px;bottom:-4px;width:3px;background:var(--gold-bright);box-shadow:0 0 10px rgba(224,179,77,0.9);}
+  .mini-leaderboard{margin:18px auto 0;max-width:280px;text-align:left;font-family:'EB Garamond',serif;}
+  .mini-leaderboard-row{padding:5px 0;border-bottom:1px solid rgba(226,212,172,0.2);font-size:0.95rem;color:#e2d4ac;}
+  @keyframes dangerPulse{0%,100%{box-shadow:inset 0 0 0 rgba(122,31,31,0);}50%{box-shadow:inset 0 0 90px rgba(122,31,31,0.55);}}
+  .low-hp-alert{animation:dangerPulse 1.6s infinite;}
 </style>
 </head>
 <body>
@@ -151,6 +156,7 @@
 <!-- Firebase (compat SDK, no build step) -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
 /* ============================================================
@@ -238,11 +244,14 @@ const BOSS = {
 };
 
 const CLASSES = [
-  {id:"tech", name:"Field Tech", icon:"🔧"},
-  {id:"mage", name:"Network Mage", icon:"🧙"},
-  {id:"cleric", name:"Cloud Cleric", icon:"☁️"},
-  {id:"rogue", name:"Help Desk Rogue", icon:"🗡️"},
+  {id:"tech", name:"Field Tech", icon:"🔧", specialty:"Hardware specialist"},
+  {id:"mage", name:"Network Mage", icon:"🧙", specialty:"Networking specialist"},
+  {id:"cleric", name:"Cloud Cleric", icon:"☁️", specialty:"Cloud specialist"},
+  {id:"rogue", name:"Help Desk Rogue", icon:"🗡️", specialty:"Boss-fight specialist"},
 ];
+// Each class hits harder (weighted damage + small score bonus) in its home domain.
+// Mobile Devices is left neutral on purpose, as the "no specialist" opening room.
+const CLASS_HOME_ROOM = { tech:"hardware", mage:"network", cleric:"cloud", rogue:"boss" };
 
 /* ============================================================
    SOUND ENGINE — pure Web Audio API, no audio files
@@ -278,6 +287,29 @@ function sfxVictory(){ [523,659,784,1047].forEach((f,i)=> tone(f, 0.32, 'triangl
 function sfxMonsterReveal(){ tone(110, 0.5, 'sawtooth', 0, 0.1); tone(146.83, 0.5, 'sawtooth', 0.06, 0.1); }
 function sfxCriticalKill(){ [392,494,587,784,1047,1319].forEach((f,i)=> tone(f, 0.22, 'sawtooth', i*0.07, 0.16)); }
 
+/* ============================================================
+   MONSTER VOICE LINES — real recorded audio (ElevenLabs), stored in /audio
+   ============================================================ */
+const AUDIO_BASE = "audio/";
+const AUDIO_MAP = {
+  mobile:   { intro:"wraith-intro.mp3",     defeat:"wraith-defeat.mp3",     escape:"wraith-escape.mp3" },
+  network:  { intro:"golem-intro.mp3",      defeat:"golem-defeat.mp3",      escape:"golem-escape.mp3" },
+  hardware: { intro:"beholder-intro.mp3",   defeat:"beholder-defeat.mp3",   escape:"beholder-escape.mp3" },
+  cloud:    { intro:"hypervisor-intro.mp3", defeat:"hypervisor-defeat.mp3", escape:"hypervisor-escape.mp3" },
+  boss:     { intro:"lich-phase1.mp3", phase2:"lich-phase2.mp3", phase3:"lich-phase3.mp3", defeat:"lich-defeat.mp3", escape:"lich-escape.mp3" }
+};
+let currentVoiceAudio = null;
+function playVoiceLine(filename, delayMs){
+  if(!filename) return;
+  setTimeout(()=>{
+    try{
+      if(currentVoiceAudio) currentVoiceAudio.pause();
+      currentVoiceAudio = new Audio(encodeURI(AUDIO_BASE + filename));
+      currentVoiceAudio.play().catch(()=>{ /* needs a user gesture first — safe to ignore */ });
+    }catch(e){ /* audio file missing or blocked — safe to ignore, sfx still plays */ }
+  }, delayMs || 0);
+}
+
 /* Tracks the last state transition we already played a sound for,
    so the same cue doesn't replay every time Firebase pushes a value. */
 let lastSoundKey = null;
@@ -291,14 +323,23 @@ function maybePlayTransitionSound(state){
     lastKnownRoomIndex = state.roomIndex;
     return;
   }
+  const room = allRoomsWithBoss()[state.roomIndex];
+  const voices = AUDIO_MAP[room.id];
+
   if(state.status === "question"){
     if(state.questionIndex === 0 && lastKnownRoomIndex !== state.roomIndex){
       sfxRoomCleared();
     } else {
       sfxQuestionStart();
+      // Boss-only mid-fight taunts on phase transitions.
+      if(room.id === "boss" && voices){
+        if(state.questionIndex === 1) playVoiceLine(voices.phase2, 300);
+        if(state.questionIndex === 2) playVoiceLine(voices.phase3, 300);
+      }
     }
   } else if(state.status === "room-intro"){
     sfxMonsterReveal();
+    if(voices) playVoiceLine(voices.intro, 400);
   } else if(state.status === "reveal"){
     const hitLanded = lastKnownMonsterHP !== null && state.monsterHP < lastKnownMonsterHP;
     if(hitLanded) sfxHit(); else sfxMiss();
@@ -307,6 +348,10 @@ function maybePlayTransitionSound(state){
     else if(state.roomOutcome === "defeated") sfxRoomCleared();
     else if(state.roomOutcome === "knocked-out") sfxHit();
     else sfxMiss();
+    if(voices){
+      const wasDefeated = state.roomOutcome === "defeated" || state.roomOutcome === "instant-kill";
+      playVoiceLine(wasDefeated ? voices.defeat : voices.escape, 400);
+    }
   } else if(state.status === "end"){
     sfxVictory();
   }
@@ -441,9 +486,18 @@ async function hostRevealAndScore(){
   const players = state.players || {};
   const playerIds = Object.keys(players);
   const answered = playerIds.filter(id => players[id].lastAnswer && players[id].lastAnswer.qIndex === state.questionIndex);
-  const correctCount = answered.filter(id => players[id].lastAnswer.choice === q.correct).length;
   const total = playerIds.length || 1;
-  const pctCorrect = correctCount / total;
+
+  // Specialists (class whose home domain matches this room) count as 1.5 correct
+  // answers toward the party's percentage instead of 1 — their expertise hits harder here.
+  let weightedCorrect = 0;
+  answered.forEach(id=>{
+    const p = players[id];
+    if(p.lastAnswer.choice === q.correct){
+      weightedCorrect += (CLASS_HOME_ROOM[p.class] === room.id) ? 1.5 : 1;
+    }
+  });
+  const pctCorrect = weightedCorrect / total;
 
   // Fixed-size hit per question, scales to any class size since it only depends on
   // the percentage of the party that got it right — never on raw headcounts.
@@ -464,7 +518,8 @@ async function hostRevealAndScore(){
     const ans = p.lastAnswer;
     if(ans && ans.qIndex === state.questionIndex && ans.choice === q.correct){
       const speedBonus = Math.round(50 * (ans.timeLeft / QUESTION_TIME));
-      updates["players/"+id+"/score"] = (p.score||0) + 100 + speedBonus;
+      const homeBonus = (CLASS_HOME_ROOM[p.class] === room.id) ? 25 : 0;
+      updates["players/"+id+"/score"] = (p.score||0) + 100 + speedBonus + homeBonus;
       updates["players/"+id+"/correctCount"] = (p.correctCount||0) + 1;
     }
   });
@@ -562,8 +617,9 @@ const VIEWS = {
       <div class="host-wrap">
         <div class="center on-stone" style="min-height:auto;padding-top:40px;">
           <h1 class="torch-title">The dungeon awaits</h1>
-          <div class="room-code-banner">Students join at your app URL and enter code:</div>
+          <div class="room-code-banner">Students join at your app URL and enter code, or scan below:</div>
           <div class="room-code">${roomCode}</div>
+          <div id="qrcode" style="margin:18px auto 0;padding:10px;background:#ecd9ae;border-radius:6px;display:inline-block;"></div>
           <div class="lobby-list">
             ${players.map(p=>`<div class="lobby-chip">${classIcon(p.class)} ${escapeHtml(p.name)}</div>`).join("") || '<div class="small-note">Waiting for adventurers to join...</div>'}
           </div>
@@ -573,6 +629,11 @@ const VIEWS = {
         </div>
       </div>`;
     document.getElementById("startBtn").onclick = ()=> hostStartGame();
+    const qrTarget = document.getElementById("qrcode");
+    if(qrTarget && window.QRCode){
+      const joinUrl = window.location.origin + window.location.pathname + "?code=" + roomCode;
+      new QRCode(qrTarget, { text: joinUrl, width:150, height:150, colorDark:"#2b1810", colorLight:"#ecd9ae" });
+    }
   },
 
   "host-game"(){
@@ -594,12 +655,21 @@ const VIEWS = {
     const q = room.questions[gameState.questionIndex];
     const players = gameState.players || {};
     const answeredCount = Object.values(players).filter(p=>p.lastAnswer && p.lastAnswer.qIndex===gameState.questionIndex).length;
+    const monsterTotalHP = room.questions.length * MONSTER_HP_PER_Q;
+    const monsterRemainingPct = Math.max(0, gameState.monsterHP) / monsterTotalHP;
+    const dangerClass = monsterRemainingPct <= 0.25 ? "low-hp-alert" : "";
     const isFinalQuestionOfRoom = gameState.questionIndex === room.questions.length - 1;
     let finalBlowHtml = "";
     if(isFinalQuestionOfRoom && gameState.status === "question"){
       const totalP = Object.keys(players).length || 1;
-      const correctSoFar = Object.values(players).filter(p => p.lastAnswer && p.lastAnswer.qIndex === gameState.questionIndex && p.lastAnswer.choice === q.correct).length;
-      const liveDangerPct = Math.min(100, Math.round((correctSoFar/totalP)*100));
+      let weightedCorrectSoFar = 0;
+      Object.values(players).forEach(p=>{
+        const a = p.lastAnswer;
+        if(a && a.qIndex === gameState.questionIndex && a.choice === q.correct){
+          weightedCorrectSoFar += (CLASS_HOME_ROOM[p.class] === room.id) ? 1.5 : 1;
+        }
+      });
+      const liveDangerPct = Math.min(100, Math.round((weightedCorrectSoFar/totalP)*100));
       finalBlowHtml = `
         <div class="final-blow-wrap">
           <div class="final-blow-label">⚡ FINAL BLOW METER ⚡</div>
@@ -611,7 +681,7 @@ const VIEWS = {
     }
 
     app.innerHTML = `
-      <div class="host-wrap">
+      <div class="host-wrap ${dangerClass}">
         <div class="corridor">
           ${rooms.map((r,i)=>`
             <div class="door ${i===gameState.roomIndex?'current':(i<gameState.roomIndex?'cleared':'')}">
@@ -630,7 +700,7 @@ const VIEWS = {
           <div class="stat-panel">
             <img class="monster-portrait" src="${encodeURI(room.image)}" alt="${room.monster}" onerror="this.style.display='none'">
             <div class="monster-name">${room.monster}</div>
-            <div class="bar-track"><div class="bar-fill hp-monster" style="width:${Math.max(0,gameState.monsterHP)/(room.questions.length*MONSTER_HP_PER_Q)*100}%"></div></div>
+            <div class="bar-track"><div class="bar-fill hp-monster" style="width:${monsterRemainingPct*100}%"></div></div>
           </div>
         </div>
 
@@ -684,13 +754,14 @@ const VIEWS = {
       <div class="center">
         <div class="card">
           <h1 class="torch-title">Join the Party</h1>
-          <div class="subtitle">Enter the code from the big screen</div>
-          <input type="text" id="codeInput" maxlength="4" placeholder="CODE">
+          <div class="subtitle">${prefillCode ? "Code found — just add your name" : "Enter the code from the big screen"}</div>
+          <input type="text" id="codeInput" maxlength="4" placeholder="CODE" value="${prefillCode || ''}">
           <input type="text" id="nameInput" placeholder="Your name" style="text-transform:none;letter-spacing:normal;">
           <button class="btn btn-gold" id="joinSubmit">Enter the Dungeon</button>
           <div class="small-note" id="joinError"></div>
         </div>
       </div>`;
+    if(prefillCode) document.getElementById("nameInput").focus();
     document.getElementById("joinSubmit").onclick = async ()=>{
       const code = document.getElementById("codeInput").value.trim();
       const name = document.getElementById("nameInput").value.trim() || "Adventurer";
@@ -710,9 +781,10 @@ const VIEWS = {
               <div class="class-card" data-id="${c.id}">
                 <span class="class-icon">${c.icon}</span>
                 <div class="class-name">${c.name}</div>
+                <div class="class-specialty">${c.specialty}</div>
               </div>`).join("")}
           </div>
-          <div class="small-note">Cosmetic only — pick whatever fits your vibe.</div>
+          <div class="small-note">Your specialty hits a little harder in its home domain.</div>
         </div>
       </div>`;
     document.querySelectorAll(".class-card").forEach(el=>{
@@ -807,6 +879,10 @@ const VIEWS = {
 function roomIntroMarkup(forHost){
   const rooms = allRoomsWithBoss();
   const room = rooms[gameState.roomIndex];
+  const homeClass = CLASSES.find(c => CLASS_HOME_ROOM[c.id] === room.id);
+  const homeTurfHtml = homeClass
+    ? `<div class="subtitle" style="color:var(--gold);">🏠 Home turf: ${homeClass.icon} ${escapeHtml(homeClass.name)}s hit harder here</div>`
+    : "";
   return `
     <div class="corridor">
       ${rooms.map((r,i)=>`
@@ -820,6 +896,7 @@ function roomIntroMarkup(forHost){
       <img class="monster-portrait monster-portrait-large" src="${encodeURI(room.image)}" alt="${escapeHtml(room.monster)}" onerror="this.style.display='none'">
       <h2 class="monster-name" style="margin:8px 0 4px;">${escapeHtml(room.monster)}</h2>
       <div class="subtitle" style="color:var(--ink-dim);">${escapeHtml(room.name)}</div>
+      ${homeTurfHtml}
       ${forHost
         ? `<button class="btn btn-gold" id="beginEncounterBtn" style="max-width:300px;margin:24px auto 0;">Begin Encounter</button>`
         : `<div class="waiting-msg" style="margin-top:24px;">Your Dungeon Master is setting the scene...</div>`}
@@ -854,6 +931,11 @@ function roomResultMarkup(forHost){
     }
   };
   const o = OUTCOMES[gameState.roomOutcome] || OUTCOMES["escaped"];
+  const topPlayers = Object.values(gameState.players || {}).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,3);
+  const miniLeaderboardHtml = topPlayers.length ? `
+    <div class="mini-leaderboard">
+      ${topPlayers.map((p,i)=>`<div class="mini-leaderboard-row">${i+1}. ${classIcon(p.class)} ${escapeHtml(p.name)} — ${p.score||0} pts</div>`).join("")}
+    </div>` : "";
 
   return `
     <div class="center on-stone" style="min-height:auto;padding-top:60px;">
@@ -861,6 +943,7 @@ function roomResultMarkup(forHost){
         <span class="result-icon">${o.icon}</span>
         <h1 class="torch-title">${o.title}</h1>
         <div class="subtitle">${o.sub}</div>
+        ${miniLeaderboardHtml}
         ${forHost
           ? `<button class="btn btn-gold" id="continueBtn" style="max-width:300px;margin:20px auto 0;">${isLastRoom ? 'See Final Results' : 'Continue to Next Room'}</button>`
           : `<div class="waiting-msg">Waiting for the Dungeon Master to continue...</div>`}
@@ -874,6 +957,15 @@ function classIcon(id){
 }
 function escapeHtml(s){
   return (s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+// If someone scans the lobby QR code, the URL carries ?code=XXXX — skip the
+// host/join menu entirely and drop them straight into the join screen with it prefilled.
+let prefillCode = null;
+const urlParams = new URLSearchParams(window.location.search);
+if(urlParams.get("code")){
+  prefillCode = urlParams.get("code").toUpperCase();
+  view = "player-join";
 }
 
 render();
