@@ -132,6 +132,17 @@
   .result-hero.defeat .result-icon{filter:drop-shadow(0 0 20px rgba(184,50,50,0.7));}
   .result-hero.victory .torch-title{color:#7ee08a;text-shadow:0 0 18px rgba(79,143,79,0.5), 0 2px 3px rgba(0,0,0,0.8);}
   .result-hero.defeat .torch-title{color:#ff8a8a;text-shadow:0 0 18px rgba(184,50,50,0.5), 0 2px 3px rgba(0,0,0,0.8);}
+  .result-hero.knockout .result-icon{filter:drop-shadow(0 0 20px rgba(224,179,77,0.7));}
+  .result-hero.knockout .torch-title{color:var(--gold-bright);text-shadow:0 0 18px rgba(224,179,77,0.5), 0 2px 3px rgba(0,0,0,0.8);}
+  .result-hero.critical .result-icon{filter:drop-shadow(0 0 26px rgba(224,179,77,0.9));animation:critPulse 0.9s infinite;}
+  .result-hero.critical .torch-title{color:#ffe9a8;text-shadow:0 0 22px rgba(224,179,77,0.7), 0 2px 3px rgba(0,0,0,0.8);}
+  @keyframes critPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.15);}}
+
+  .final-blow-wrap{margin:6px 0 22px;}
+  .final-blow-label{font-family:'MedievalSharp',cursive;color:var(--hp);letter-spacing:0.08em;font-size:0.85rem;margin-bottom:6px;}
+  .final-blow-track{position:relative;height:26px;}
+  .final-blow-fill{background:repeating-linear-gradient(115deg, var(--hp) 0 8px, var(--hp-bright) 8px 16px);}
+  .final-blow-threshold{position:absolute;left:75%;top:-4px;bottom:-4px;width:3px;background:var(--gold-bright);box-shadow:0 0 10px rgba(224,179,77,0.9);}
 </style>
 </head>
 <body>
@@ -265,6 +276,7 @@ function sfxMiss(){ tone(220, 0.25, 'sawtooth', 0, 0.14); tone(165, 0.3, 'sawtoo
 function sfxRoomCleared(){ tone(523, 0.15, 'triangle'); tone(659, 0.15, 'triangle', 0.15); tone(784, 0.28, 'triangle', 0.3); }
 function sfxVictory(){ [523,659,784,1047].forEach((f,i)=> tone(f, 0.32, 'triangle', i*0.18)); }
 function sfxMonsterReveal(){ tone(110, 0.5, 'sawtooth', 0, 0.1); tone(146.83, 0.5, 'sawtooth', 0.06, 0.1); }
+function sfxCriticalKill(){ [392,494,587,784,1047,1319].forEach((f,i)=> tone(f, 0.22, 'sawtooth', i*0.07, 0.16)); }
 
 /* Tracks the last state transition we already played a sound for,
    so the same cue doesn't replay every time Firebase pushes a value. */
@@ -291,7 +303,10 @@ function maybePlayTransitionSound(state){
     const hitLanded = lastKnownMonsterHP !== null && state.monsterHP < lastKnownMonsterHP;
     if(hitLanded) sfxHit(); else sfxMiss();
   } else if(state.status === "room-result"){
-    if(state.roomOutcome === "victory") sfxRoomCleared(); else sfxMiss();
+    if(state.roomOutcome === "instant-kill") sfxCriticalKill();
+    else if(state.roomOutcome === "defeated") sfxRoomCleared();
+    else if(state.roomOutcome === "knocked-out") sfxHit();
+    else sfxMiss();
   } else if(state.status === "end"){
     sfxVictory();
   }
@@ -379,8 +394,17 @@ async function hostAdvance(){
   const room = allRoomsWithBoss()[state.roomIndex];
   const isLastQInRoom = state.questionIndex >= room.questions.length - 1;
 
-  if(state.monsterHP <= 0 || isLastQInRoom){
-    const outcome = state.monsterHP <= 0 ? "victory" : "defeat";
+  if(isLastQInRoom){
+    const totalHP = room.questions.length * MONSTER_HP_PER_Q;
+    const remainingPct = Math.max(0, state.monsterHP) / totalHP;
+    const finalBlowPct = state.lastQuestionPctCorrect || 0;
+    // Instant kill: over 75% of the party nailed the final question, regardless of remaining HP.
+    // Otherwise fall back to the normal three-tier outcome based on remaining monster HP.
+    let outcome;
+    if(finalBlowPct > 0.75) outcome = "instant-kill";
+    else if(remainingPct > 0.5) outcome = "escaped";
+    else if(remainingPct > 0.25) outcome = "knocked-out";
+    else outcome = "defeated";
     await db.ref("dungeonCrawl/"+roomCode).update({status:"room-result", roomOutcome: outcome});
   } else {
     await db.ref("dungeonCrawl/"+roomCode).update({
@@ -432,6 +456,7 @@ async function hostRevealAndScore(){
   updates["monsterHP"] = Math.max(0, state.monsterHP - dealt);
   updates["partyHP"] = Math.max(0, state.partyHP - partyLoss);
   updates["status"] = "reveal";
+  updates["lastQuestionPctCorrect"] = pctCorrect;
 
   // update player scores
   playerIds.forEach(id=>{
@@ -569,6 +594,21 @@ const VIEWS = {
     const q = room.questions[gameState.questionIndex];
     const players = gameState.players || {};
     const answeredCount = Object.values(players).filter(p=>p.lastAnswer && p.lastAnswer.qIndex===gameState.questionIndex).length;
+    const isFinalQuestionOfRoom = gameState.questionIndex === room.questions.length - 1;
+    let finalBlowHtml = "";
+    if(isFinalQuestionOfRoom && gameState.status === "question"){
+      const totalP = Object.keys(players).length || 1;
+      const correctSoFar = Object.values(players).filter(p => p.lastAnswer && p.lastAnswer.qIndex === gameState.questionIndex && p.lastAnswer.choice === q.correct).length;
+      const liveDangerPct = Math.min(100, Math.round((correctSoFar/totalP)*100));
+      finalBlowHtml = `
+        <div class="final-blow-wrap">
+          <div class="final-blow-label">⚡ FINAL BLOW METER ⚡</div>
+          <div class="bar-track final-blow-track">
+            <div class="bar-fill final-blow-fill" style="width:${liveDangerPct}%"></div>
+            <div class="final-blow-threshold"></div>
+          </div>
+        </div>`;
+    }
 
     app.innerHTML = `
       <div class="host-wrap">
@@ -597,6 +637,7 @@ const VIEWS = {
         <div class="question-panel">
           ${gameState.status==="question" ? `<div class="timer">${timeLeft}s</div>` : ""}
           <div class="question-text">${q.q}</div>
+          ${finalBlowHtml}
           <div class="options-grid">
             ${q.options.map((o,i)=>`
               <div class="opt opt-${i}">
@@ -788,14 +829,38 @@ function roomIntroMarkup(forHost){
 function roomResultMarkup(forHost){
   const rooms = allRoomsWithBoss();
   const room = rooms[gameState.roomIndex];
-  const isVictory = gameState.roomOutcome === "victory";
   const isLastRoom = gameState.roomIndex >= rooms.length - 1;
+
+  const OUTCOMES = {
+    "instant-kill": {
+      cls: "critical", icon: "💥",
+      title: "CRITICAL HIT — " + escapeHtml(room.monster) + " is obliterated",
+      sub: "The party lands a finishing blow it never saw coming."
+    },
+    "defeated": {
+      cls: "victory", icon: "⚔️",
+      title: escapeHtml(room.monster) + " is vanquished",
+      sub: "The party presses onward."
+    },
+    "knocked-out": {
+      cls: "knockout", icon: "🩸",
+      title: escapeHtml(room.monster) + " is knocked out — but not defeated",
+      sub: "Wounded and reeling, it slips back into the dark. You'll finish the job another night."
+    },
+    "escaped": {
+      cls: "defeat", icon: "💨",
+      title: escapeHtml(room.monster) + " slips away",
+      sub: "It barely felt a thing — you'll meet again another night."
+    }
+  };
+  const o = OUTCOMES[gameState.roomOutcome] || OUTCOMES["escaped"];
+
   return `
     <div class="center on-stone" style="min-height:auto;padding-top:60px;">
-      <div class="result-hero ${isVictory ? 'victory' : 'defeat'}">
-        <span class="result-icon">${isVictory ? '⚔️' : '💀'}</span>
-        <h1 class="torch-title">${isVictory ? escapeHtml(room.monster) + ' is vanquished' : escapeHtml(room.monster) + ' slips away'}</h1>
-        <div class="subtitle">${isVictory ? 'The party presses onward.' : "It escapes into the dark — you'll meet again another night."}</div>
+      <div class="result-hero ${o.cls}">
+        <span class="result-icon">${o.icon}</span>
+        <h1 class="torch-title">${o.title}</h1>
+        <div class="subtitle">${o.sub}</div>
         ${forHost
           ? `<button class="btn btn-gold" id="continueBtn" style="max-width:300px;margin:20px auto 0;">${isLastRoom ? 'See Final Results' : 'Continue to Next Room'}</button>`
           : `<div class="waiting-msg">Waiting for the Dungeon Master to continue...</div>`}
