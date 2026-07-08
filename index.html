@@ -187,48 +187,48 @@ const ROOMS = [
     id:"mobile", name:"Mobile Devices", icon:"📱", monster:"The Cracked Screen Wraith",
     image:"the-cracked-screen-wraith.png",
     questions:[
-      {q:"A technician needs to replace a swelling battery in a laptop. What is the FIRST safety concern?", options:["Fire/chemical hazard from the battery","Voiding the manufacturer warranty","Losing saved Wi-Fi passwords","Scratching the laptop chassis"], correct:0},
-      {q:"Which mobile connector is reversible and supports both data and fast charging on most modern Android phones?", options:["Micro-USB","Lightning","USB-C","Mini-USB"], correct:2},
-      {q:"A user's phone won't hold a charge and gets hot near the battery. What's the best first step?", options:["Factory reset the phone","Stop using it and have the battery inspected/replaced","Charge it overnight to recalibrate","Put it in the freezer to cool it down"], correct:1},
-      {q:"What type of mobile device pairing uses short-range radio and is common for wireless earbuds?", options:["NFC","Bluetooth","Infrared","GPS"], correct:1},
-      {q:"A tablet's digitizer is cracked but the LCD display still works. What is damaged?", options:["The battery","The touch-sensing layer","The Wi-Fi antenna","The speaker"], correct:1},
-      {q:"Which of these is an example of Mobile Device Management (MDM) enforcement?", options:["Remote wipe of a lost corporate phone","Increasing screen brightness","Installing a screen protector","Changing a ringtone"], correct:0},
+      {q:"A technician needs to replace a swelling battery in a laptop. What is the FIRST safety concern?", options:["Fire/chemical hazard from the battery","Voiding the manufacturer warranty","Immediately remove and replace the battery yourself","Scratching the laptop chassis"], correct:0},
+      {q:"Which mobile connector is reversible and supports both data and fast charging on most modern Android devices?", options:["Micro-USB","Lightning","USB-C","Mini-USB"], correct:2},
+      {q:"A user's phone won't hold a charge and gets hot near the battery. What's the best first step?", options:["Perform a factory reset","Stop using it and have the battery inspected/replaced","Replace the charging cable and continue using it","Put it in the freezer to cool it down"], correct:1},
+      {q:"What type of mobile device pairing uses short-range radio and is common for wireless earbuds?", options:["Infrared","NFC","GPS","Bluetooth"], correct:3},
+      {q:"A tablet's digitizer is cracked but the LCD display still works. What is damaged?", options:["The touch-sensing layer","The battery","The LCD display itself","The Wi-Fi antenna"], correct:0},
+      {q:"Which of these is an example of MDM enforcement?", options:["Increasing screen brightness","Installing a screen protector","Remote wipe of a lost corporate phone","Manually deleting a lost employee's photos one by one"], correct:2},
     ]
   },
   {
     id:"network", name:"Networking", icon:"🌐", monster:"The Rogue Router Golem",
     image:"the-rogue-router-golem.png",
     questions:[
-      {q:"Which cable type is required for Gigabit Ethernet at minimum?", options:["Cat 3","Cat 5","Cat 5e","Coaxial"], correct:2},
-      {q:"What device operates at Layer 2 and forwards traffic based on MAC address?", options:["Hub","Switch","Repeater","Modem"], correct:1},
-      {q:"A user says 'the internet is down' but can reach other devices on the LAN. What's the likely issue?", options:["Bad NIC driver","WAN/gateway or ISP problem","Corrupt OS install","Faulty RAM"], correct:1},
-      {q:"Which wireless standard operates ONLY in the 5GHz band?", options:["802.11b","802.11g","802.11a","802.11n (2.4GHz mode)"], correct:2},
-      {q:"What protocol automatically assigns IP addresses to devices on a network?", options:["DNS","DHCP","FTP","SNMP"], correct:1},
-      {q:"A technician is asked to segment guest Wi-Fi traffic from internal traffic on the same switch. What should they configure?", options:["A VLAN","A new subnet mask on the same VLAN","Port forwarding","A firewall exception"], correct:0},
+      {q:"Which cable type is required for Gigabit Ethernet at minimum?", options:["Cat 3","Cat 5e","Coaxial","Cat 5"], correct:1},
+      {q:"What device forwards traffic based on MAC address?", options:["Hub","Modem","Repeater","Switch"], correct:3},
+      {q:"A user says 'the internet is down' but can reach other devices on the LAN. What's the likely issue?", options:["WAN/gateway or ISP problem","Bad NIC driver","Corrupt OS install","Faulty RAM"], correct:0},
+      {q:"Which wireless standard operates ONLY in the 5GHz band?", options:["802.11b","802.11g","802.11a","802.11n"], correct:2},
+      {q:"What protocol automatically assigns IP addresses to devices on a network?", options:["FTP","DHCP","SNMP","DNS"], correct:1},
+      {q:"A technician is asked to segment guest Wi-Fi traffic from internal traffic on the same switch. What should they configure?", options:["Port forwarding","A firewall exception","A new subnet mask on the same broadcast domain","A VLAN"], correct:3},
     ]
   },
   {
     id:"hardware", name:"Hardware", icon:"🖥️", monster:"The Bent-Pin Beholder",
     image:"the-bent-pin-beholder.png",
     questions:[
-      {q:"A PC won't POST and emits a series of beeps. What should you check first?", options:["Hard drive health","RAM seating","Monitor cable","Wi-Fi adapter"], correct:1},
-      {q:"Which power supply connector provides additional power directly to the CPU?", options:["24-pin ATX","4/8-pin EPS","SATA power","Molex"], correct:1},
-      {q:"What is the purpose of thermal paste between a CPU and its heatsink?", options:["Electrical insulation","Improved heat transfer","Preventing dust buildup","Securing the CPU in the socket"], correct:1},
-      {q:"A technician is installing an NVMe SSD. Which interface does it use?", options:["SATA","PCIe (via M.2 slot)","IDE","USB only"], correct:1},
-      {q:"Which RAM configuration takes advantage of dual-channel architecture?", options:["Installing a single stick","Installing matched pairs in the correct slots","Mixing DDR3 and DDR4","Using only ECC RAM"], correct:1},
-      {q:"A printer produces streaks on every page. What's the most likely cause?", options:["Bad network cable","Dirty or worn drum/imaging unit","Incorrect paper size","Outdated OS"], correct:1},
+      {q:"On startup, a user's PC emits a series of diagnostic beeps during POST. What should you check first?", options:["Wi-Fi adapter connection","Monitor brightness settings","RAM seating","Reinstall the operating system"], correct:2},
+      {q:"Which power supply connector provides additional dedicated power directly to the CPU?", options:["4/8-pin EPS","SATA power","Molex","24-pin ATX"], correct:0},
+      {q:"What is the purpose of thermal paste between a CPU and its heatsink?", options:["Preventing dust buildup","Improved heat transfer","Securing the CPU in its socket","Preventing electrical short circuits between components"], correct:1},
+      {q:"A technician is installing an NVMe solid-state drive. Which interface does it use?", options:["IDE","USB only","SATA","PCIe (via M.2 slot)"], correct:3},
+      {q:"Which RAM configuration takes advantage of dual-channel architecture?", options:["Installing matched pairs in the correct slots","Mixing DDR3 and DDR4 modules","Using only ECC RAM","Installing the maximum RAM capacity the motherboard supports"], correct:0},
+      {q:"A laser printer produces streaks on every printed page. What's the most likely cause?", options:["A bad network cable","Incorrect paper size selected","Dirty or worn drum/imaging unit","Toner cartridge running low"], correct:2},
     ]
   },
   {
     id:"cloud", name:"Virtualization & Cloud", icon:"☁️", monster:"The Shape-Shifting Hypervisor",
     image:"the-shape-shifting-hypervisor.png",
     questions:[
-      {q:"What is the purpose of a Type 1 hypervisor?", options:["Runs as an app on top of an OS","Runs directly on hardware with no host OS","Only virtualizes storage","Only used for containers"], correct:1},
-      {q:"Which cloud model gives a customer the most control, managing everything above the physical hardware?", options:["SaaS","PaaS","IaaS","DaaS"], correct:2},
-      {q:"A company wants employees to access a full virtual desktop from any device. What should they deploy?", options:["VDI","RAID 5","A VPN concentrator only","A print server"], correct:0},
-      {q:"What is a key resource requirement to consider before creating a new virtual machine?", options:["Monitor resolution","Adequate RAM, CPU, and storage on the host","Keyboard layout","Printer driver"], correct:1},
-      {q:"Which of these is a benefit of cloud file synchronization services for end users?", options:["Guaranteed zero downtime forever","Access to files across multiple devices","Eliminates need for any local storage","Automatically upgrades hardware"], correct:1},
-      {q:"What does 'elasticity' mean in the context of cloud computing?", options:["Data is always encrypted","Resources can scale up or down based on demand","Servers never require maintenance","All services are free"], correct:1},
+      {q:"A hypervisor runs directly on hardware with no host operating system involved. What type of hypervisor is this?", options:["Container-based virtualization","Type 1 hypervisor (bare-metal)","Cloud hosting service","Type 2 hypervisor"], correct:1},
+      {q:"Which cloud service model gives a customer the most control, managing everything above the physical hardware?", options:["SaaS","DaaS","PaaS","IaaS"], correct:3},
+      {q:"A company wants employees to access a full virtual desktop from any device. What should they deploy?", options:["VDI","RAID 5","A print server","A VPN concentrator only"], correct:0},
+      {q:"An organization uses its public cloud provider alongside a private cloud environment managed by a third party. Which cloud deployment model does this describe?", options:["Public cloud","Private cloud","Hybrid cloud","Community cloud"], correct:2},
+      {q:"Which of these is a benefit of cloud file synchronization services for end users?", options:["Guaranteed zero downtime forever","Access to files across multiple devices","Automatically upgrades hardware","Eliminates the need for any local storage"], correct:1},
+      {q:"What does 'elasticity' mean in the context of cloud computing?", options:["All services are free","Servers never require maintenance","Data is always encrypted automatically","Resources can scale up or down based on demand"], correct:3},
     ]
   },
 ];
@@ -237,9 +237,9 @@ const BOSS = {
   id:"boss", name:"Boss: The Ticket Queue Lich", icon:"👑", monster:"The Ticket Queue Lich",
   image:"the-ticket-queue-lich.png",
   questions:[
-    {q:"BOSS PHASE 1: A user reports their PC randomly shuts down under heavy load. Multimeter shows voltages fluctuating under stress. What do you check next?", options:["The power supply","The mouse","The keyboard driver","The desktop wallpaper"], correct:0},
-    {q:"BOSS PHASE 2: After replacing the PSU, the system boots but has no network connectivity, though the NIC light is on. What's next in your troubleshooting order?", options:["Reinstall the OS immediately","Check IP configuration and cable/switch port","Replace the motherboard","Replace the monitor"], correct:1},
-    {q:"BOSS PHASE 3: IP config is correct and the cable tests fine, but only THIS device can't reach the internet while others on the same switch can. What's the most efficient next step?", options:["Swap the switch port and patch cable, then retest","Reformat the drive","Buy a new router","Ignore it, it will resolve itself"], correct:0},
+    {q:"A user's laptop recently had its screen replaced. Since then, it cannot detect any wireless networks at all. What is the most likely cause?", options:["The wireless network password was changed","The Wi-Fi antenna cable was not reconnected during the screen replacement","The wireless network adapter driver needs to be reinstalled","The router needs to be restarted"], correct:1},
+    {q:"After reconnecting the antenna, the laptop now shows as connected to the wireless network, but there is still no internet access. Running ipconfig shows an address of 169.254.0.5. What does this indicate?", options:["The DNS server is down","The device has a duplicate static IP conflict","The device failed to receive an address from the DHCP server and assigned itself an APIPA address","The subnet mask is misconfigured"], correct:2},
+    {q:"With the cause identified, what is the correct next step to restore internet access?", options:["Release and renew the IP address, checking the switch port and DHCP server if it persists","Reinstall the operating system","Replace the network adapter","Manually assign a permanent static IP address"], correct:0},
   ]
 };
 
@@ -296,7 +296,7 @@ const AUDIO_MAP = {
   network:  { intro:"golem-intro.mp3",      defeat:"golem-defeat.mp3",      escape:"golem-escape.mp3" },
   hardware: { intro:"beholder-intro.mp3",   defeat:"beholder-defeat.mp3",   escape:"beholder-escape.mp3" },
   cloud:    { intro:"hypervisor-intro.mp3", defeat:"hypervisor-defeat.mp3", escape:"hypervisor-escape.mp3" },
-  boss:     { intro:"lich-phase1.mp3", phase2:"lich-phase2.mp3", phase3:"lich-phase3.mp3", defeat:"lich-defeat.mp3", escape:"lich-escape.mp3" }
+  boss:     { splash:"lich-splash-intro.mp3", phase1:"lich-phase1.mp3", phase2:"lich-phase2.mp3", phase3:"lich-phase3.mp3", defeat:"lich-defeat.mp3", escape:"lich-escape.mp3" }
 };
 let currentVoiceAudio = null;
 function playVoiceLine(filename, delayMs){
@@ -331,18 +331,19 @@ function maybePlayTransitionSound(state){
       sfxRoomCleared();
     } else {
       sfxQuestionStart();
-      // Boss-only mid-fight taunts on phase transitions.
-      if(room.id === "boss" && voices){
-        if(state.questionIndex === 1) playVoiceLine(voices.phase2, 300);
-        if(state.questionIndex === 2) playVoiceLine(voices.phase3, 300);
-      }
     }
   } else if(state.status === "room-intro"){
     sfxMonsterReveal();
-    if(voices) playVoiceLine(voices.intro, 400);
+    if(voices) playVoiceLine(room.id === "boss" ? voices.splash : voices.intro, 400);
   } else if(state.status === "reveal"){
     const hitLanded = lastKnownMonsterHP !== null && state.monsterHP < lastKnownMonsterHP;
     if(hitLanded) sfxHit(); else sfxMiss();
+    // Boss-only: the phase-specific taunt plays right when the answer is revealed,
+    // not when the next question starts.
+    if(room.id === "boss" && voices){
+      const phaseKey = ["phase1","phase2","phase3"][state.questionIndex];
+      playVoiceLine(voices[phaseKey], 350);
+    }
   } else if(state.status === "room-result"){
     if(state.roomOutcome === "instant-kill") sfxCriticalKill();
     else if(state.roomOutcome === "defeated") sfxRoomCleared();
