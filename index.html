@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Core 1 Dungeon Crawl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stone-1: #14100d;
+    --stone-2: #1f1712;
+    --parchment: #ecd9ae;
+    --parchment-2: #dcc48f;
+    --wood: #4a2f18;
+    --wood-dark: #2c1b0d;
+    --ink: #2b1810;
+    --ink-dim: #6b5842;
+    --gold: #b8892b;
+    --gold-bright: #e0b34d;
+    --hp: #7a1f1f;
+    --hp-bright: #b83232;
+    --arcane: #4a1f6b;
+    --arcane-bright: #8a4fc7;
+    --good: #2f5a2f;
+    --good-bright: #4f8f4f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;min-height:100vh;color:var(--parchment);font-family:'IBM Plex Mono',monospace;
+    background-color:var(--stone-1);
+    background-image:
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 2px, transparent 2px, transparent 42px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.25) 0px, rgba(0,0,0,0.25) 2px, transparent 2px, transparent 84px),
+      radial-gradient(ellipse at 50% 0%, #2a2018 0%, #14100d 70%);
+  }
+  h1,h2,h3,.display{font-family:'MedievalSharp',cursive;letter-spacing:0.02em;font-weight:400;}
+  button{font-family:inherit;cursor:pointer;}
+  #app{min-height:100vh;display:flex;flex-direction:column;}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center;}
+
+  .card{
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(180,140,80,0.15), transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(120,90,50,0.15), transparent 60%),
+      linear-gradient(160deg, var(--parchment), var(--parchment-2));
+    color:var(--ink);
+    border:3px solid var(--wood);
+    box-shadow: 0 0 0 1px var(--gold) inset, 0 10px 30px rgba(0,0,0,0.55);
+    border-radius:4px;
+    padding:30px;max-width:480px;width:100%;
+    font-family:'EB Garamond',serif;
+  }
+  .torch-title{color:#5c1414;font-size:2.2rem;margin:0 0 8px;text-shadow:0 1px 0 rgba(255,255,255,0.35), 0 0 8px rgba(184,137,43,0.25);}
+  .subtitle{color:#4a3826;margin-bottom:28px;font-size:0.95rem;font-family:'EB Garamond',serif;font-style:italic;}
+  input[type=text]{width:100%;padding:14px;font-size:1.1rem;font-family:'IBM Plex Mono',monospace;background:var(--parchment-2);border:2px solid var(--wood);color:var(--ink);border-radius:4px;margin-bottom:14px;text-align:center;letter-spacing:0.15em;text-transform:uppercase;}
+  .btn{display:block;width:100%;padding:16px;border-radius:4px;border:2px solid var(--wood);background:var(--wood-dark);color:var(--parchment);font-size:1rem;font-weight:600;margin-bottom:12px;transition:transform .1s, border-color .15s;font-family:'EB Garamond',serif;}
+  .btn:active{transform:scale(0.97);}
+  .btn-gold{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#2c1a04;border:2px solid #7a5518;text-shadow:0 1px 0 rgba(255,255,255,0.25);}
+  .btn-gold:disabled{opacity:0.4;}
+  .class-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  .class-card{border:2px solid var(--wood);border-radius:4px;padding:16px 8px;background:rgba(0,0,0,0.06);text-align:center;}
+  .class-card.selected{border-color:var(--gold);box-shadow:0 0 14px rgba(184,137,43,0.45);}
+  .class-icon{font-size:2rem;display:block;margin-bottom:6px;}
+  .class-name{font-size:0.75rem;color:var(--ink-dim);}
+
+  /* HOST SCREEN — the shared "gameboard" */
+  .host-wrap{padding:24px 32px;max-width:1200px;margin:0 auto;width:100%;}
+
+  .corridor{display:flex;gap:10px;margin-bottom:28px;}
+  .door{flex:1;position:relative;background:linear-gradient(180deg,#3a2f26,#241b14);border:2px solid #58453045;border-top:6px solid #58452f;border-radius:6px 6px 2px 2px;padding:16px 6px 12px;text-align:center;opacity:0.45;transition:opacity .4s, box-shadow .4s;}
+  .door.current{opacity:1;box-shadow:0 0 24px rgba(224,179,77,0.35), inset 0 0 20px rgba(224,179,77,0.08);}
+  .door.cleared{opacity:0.75;border-top-color:var(--good-bright);}
+  .torch-flame{font-size:1.1rem;display:block;filter:drop-shadow(0 0 6px rgba(255,150,50,0.7));animation:flicker 1.6s infinite ease-in-out;}
+  .door.current .torch-flame{animation-duration:0.9s;}
+  @keyframes flicker{0%,100%{opacity:1;transform:scale(1);} 25%{opacity:0.75;transform:scale(0.92) translateX(-1px);} 50%{opacity:1;transform:scale(1.08) translateX(1px);} 75%{opacity:0.85;transform:scale(0.97);}}
+  .door-icon{font-size:1.6rem;display:block;margin-top:4px;}
+  .door-label{font-size:0.62rem;color:#cbb98c;text-transform:uppercase;margin-top:6px;letter-spacing:0.06em;font-family:'EB Garamond',serif;}
+
+  .battle-row{display:flex;gap:24px;margin-bottom:24px;flex-wrap:wrap;}
+  .stat-panel{flex:1;min-width:260px;background:linear-gradient(160deg,#efe0bc,#dcc48f);color:var(--ink);border:3px solid var(--wood);border-radius:4px;padding:20px;box-shadow:0 6px 18px rgba(0,0,0,0.4);font-family:'EB Garamond',serif;}
+  .bar-track{background:#3a2f26;border-radius:3px;height:22px;overflow:hidden;border:2px solid var(--wood-dark);margin-top:8px;box-shadow:inset 0 2px 6px rgba(0,0,0,0.5);}
+  .bar-fill{height:100%;transition:width .5s ease;}
+  .bar-fill.hp-party{background:linear-gradient(90deg,var(--good),var(--good-bright));}
+  .bar-fill.hp-monster{background:repeating-linear-gradient(115deg, var(--arcane) 0 8px, var(--arcane-bright) 8px 16px);}
+  .monster-name{color:#5a2e80;font-size:1.4rem;font-family:'MedievalSharp',cursive;}
+  .monster-portrait{display:block;max-width:100%;max-height:220px;margin:0 auto 12px;border-radius:4px;filter:drop-shadow(0 8px 20px rgba(0,0,0,0.6));}
+
+  .question-panel{background:linear-gradient(160deg,var(--parchment),var(--parchment-2));color:var(--ink);border:3px solid var(--wood);border-radius:4px;padding:32px;text-align:center;box-shadow:0 0 0 1px var(--gold) inset, 0 10px 30px rgba(0,0,0,0.5);}
+  .question-text{font-size:1.6rem;margin-bottom:24px;font-family:'EB Garamond',serif;}
+  .options-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .opt{border-radius:6px;padding:20px;font-size:1.05rem;text-align:left;border:2px solid rgba(0,0,0,0.25);color:#fff;position:relative;font-family:'EB Garamond',serif;}
+  .opt-0{background:#7a1f1f;} .opt-1{background:#1f3a6b;} .opt-2{background:#7a5518;} .opt-3{background:#2f5a2f;}
+  .opt-shape{font-size:1.3rem;margin-right:8px;}
+  .timer{font-size:2.4rem;color:var(--hp);font-family:'MedievalSharp',cursive;}
+  .answer-count{color:var(--ink-dim);margin-top:16px;font-size:0.85rem;font-family:'EB Garamond',serif;}
+  .room-code-banner{color:#4a3826;font-size:0.9rem;margin-bottom:4px;font-family:'EB Garamond',serif;}
+  .room-code{color:#5c1414;font-size:1.9rem;font-weight:700;letter-spacing:0.25em;}
+  .lobby-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;justify-content:center;}
+  .lobby-chip{background:var(--wood-dark);border:2px solid var(--wood);border-radius:20px;padding:8px 16px;font-size:0.9rem;color:var(--parchment);}
+  .leaderboard-row{display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--wood);font-family:'EB Garamond',serif;font-size:1.1rem;}
+  .rank-1{color:#8a5518;font-weight:700;}
+  .dm-text{color:#5a2e80;font-style:italic;margin-bottom:20px;min-height:24px;font-family:'EB Garamond',serif;}
+  .flash-correct{animation:flashGreen .6s ease;}
+  .flash-wrong{animation:flashRed .6s ease;}
+  @keyframes flashGreen{0%{background:rgba(47,90,47,0.4);}100%{background:transparent;}}
+  @keyframes flashRed{0%{background:rgba(122,31,31,0.4);}100%{background:transparent;}}
+
+  /* PLAYER SCREEN */
+  .player-wrap{padding:20px;max-width:520px;margin:0 auto;width:100%;}
+  .player-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;color:#c9b98f;font-size:0.85rem;}
+  .player-hp{color:var(--good-bright);font-weight:600;}
+  .shape-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:40px;}
+  .shape-btn{aspect-ratio:1;border-radius:10px;border:2px solid rgba(0,0,0,0.3);font-size:2.5rem;color:#fff;}
+  .shape-btn:disabled{opacity:0.35;}
+  .waiting-msg{color:#c9b98f;margin-top:60px;font-size:1.1rem;font-family:'EB Garamond',serif;font-style:italic;}
+  .result-banner{font-size:1.4rem;margin:20px 0;padding:16px;border-radius:6px;font-family:'MedievalSharp',cursive;}
+  .result-correct{background:rgba(47,90,47,0.25);color:#8fdb8f;border:2px solid var(--good-bright);}
+  .result-wrong{background:rgba(122,31,31,0.25);color:#ff9a9a;border:2px solid var(--hp-bright);}
+  .small-note{color:#5c4a32;font-size:0.75rem;margin-top:20px;font-family:'EB Garamond',serif;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Firebase (compat SDK, no build step) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+<script>
+/* ============================================================
+   FIREBASE CONFIG
+   Paste your project's config below (same project you used for
+   Battle of the Hash works fine — this game uses its own
+   /dungeonCrawl/{roomCode} path so it won't collide with anything).
+   Get this from: Firebase console > Project settings > General
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDAO5gVBzTcZ8hKIRKybOnogf4oD-2rTVM",
+  authDomain: "core-1-dungeon-crawl.firebaseapp.com",
+  databaseURL: "https://core-1-dungeon-crawl-default-rtdb.firebaseio.com",
+  projectId: "core-1-dungeon-crawl",
+  storageBucket: "core-1-dungeon-crawl.firebasestorage.app",
+  messagingSenderId: "1085609461708",
+  appId: "1:1085609461708:web:d17ac3405d82b51e2d7f69"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ============================================================
+   QUESTION BANK — CompTIA A+ Core 1 (220-1201) domains
+   Each room = one domain. Boss = mixed troubleshooting scenario.
+   ============================================================ */
+const ROOMS = [
+  {
+    id:"mobile", name:"Mobile Devices", icon:"📱", monster:"The Cracked Screen Wraith",
+    image:"the-cracked-screen-wraith.png",
+    questions:[
+      {q:"A technician needs to replace a swelling battery in a laptop. What is the FIRST safety concern?", options:["Fire/chemical hazard from the battery","Voiding the manufacturer warranty","Losing saved Wi-Fi passwords","Scratching the laptop chassis"], correct:0},
+      {q:"Which mobile connector is reversible and supports both data and fast charging on most modern Android phones?", options:["Micro-USB","Lightning","USB-C","Mini-USB"], correct:2},
+      {q:"A user's phone won't hold a charge and gets hot near the battery. What's the best first step?", options:["Factory reset the phone","Stop using it and have the battery inspected/replaced","Charge it overnight to recalibrate","Put it in the freezer to cool it down"], correct:1},
+      {q:"What type of mobile device pairing uses short-range radio and is common for wireless earbuds?", options:["NFC","Bluetooth","Infrared","GPS"], correct:1},
+      {q:"A tablet's digitizer is cracked but the LCD display still works. What is damaged?", options:["The battery","The touch-sensing layer","The Wi-Fi antenna","The speaker"], correct:1},
+      {q:"Which of these is an example of Mobile Device Management (MDM) enforcement?", options:["Remote wipe of a lost corporate phone","Increasing screen brightness","Installing a screen protector","Changing a ringtone"], correct:0},
+    ]
+  },
+  {
+    id:"network", name:"Networking", icon:"🌐", monster:"The Rogue Router Golem",
+    image:"the-rogue-router-golem.png",
+    questions:[
+      {q:"Which cable type is required for Gigabit Ethernet at minimum?", options:["Cat 3","Cat 5","Cat 5e","Coaxial"], correct:2},
+      {q:"What device operates at Layer 2 and forwards traffic based on MAC address?", options:["Hub","Switch","Repeater","Modem"], correct:1},
+      {q:"A user says 'the internet is down' but can reach other devices on the LAN. What's the likely issue?", options:["Bad NIC driver","WAN/gateway or ISP problem","Corrupt OS install","Faulty RAM"], correct:1},
+      {q:"Which wireless standard operates ONLY in the 5GHz band?", options:["802.11b","802.11g","802.11a","802.11n (2.4GHz mode)"], correct:2},
+      {q:"What protocol automatically assigns IP addresses to devices on a network?", options:["DNS","DHCP","FTP","SNMP"], correct:1},
+      {q:"A technician is asked to segment guest Wi-Fi traffic from internal traffic on the same switch. What should they configure?", options:["A VLAN","A new subnet mask on the same VLAN","Port forwarding","A firewall exception"], correct:0},
+    ]
+  },
+  {
+    id:"hardware", name:"Hardware", icon:"🖥️", monster:"The Bent-Pin Beholder",
+    image:"the-bent-pin-beholder.png",
+    questions:[
+      {q:"A PC won't POST and emits a series of beeps. What should you check first?", options:["Hard drive health","RAM seating","Monitor cable","Wi-Fi adapter"], correct:1},
+      {q:"Which power supply connector provides additional power directly to the CPU?", options:["24-pin ATX","4/8-pin EPS","SATA power","Molex"], correct:1},
+      {q:"What is the purpose of thermal paste between a CPU and its heatsink?", options:["Electrical insulation","Improved heat transfer","Preventing dust buildup","Securing the CPU in the socket"], correct:1},
+      {q:"A technician is installing an NVMe SSD. Which interface does it use?", options:["SATA","PCIe (via M.2 slot)","IDE","USB only"], correct:1},
+      {q:"Which RAM configuration takes advantage of dual-channel architecture?", options:["Installing a single stick","Installing matched pairs in the correct slots","Mixing DDR3 and DDR4","Using only ECC RAM"], correct:1},
+      {q:"A printer produces streaks on every page. What's the most likely cause?", options:["Bad network cable","Dirty or worn drum/imaging unit","Incorrect paper size","Outdated OS"], correct:1},
+    ]
+  },
+  {
+    id:"cloud", name:"Virtualization & Cloud", icon:"☁️", monster:"The Shape-Shifting Hypervisor",
+    image:"the-shape-shifting-hypervisor.png",
+    questions:[
+      {q:"What is the purpose of a Type 1 hypervisor?", options:["Runs as an app on top of an OS","Runs directly on hardware with no host OS","Only virtualizes storage","Only used for containers"], correct:1},
+      {q:"Which cloud model gives a customer the most control, managing everything above the physical hardware?", options:["SaaS","PaaS","IaaS","DaaS"], correct:2},
+      {q:"A company wants employees to access a full virtual desktop from any device. What should they deploy?", options:["VDI","RAID 5","A VPN concentrator only","A print server"], correct:0},
+      {q:"What is a key resource requirement to consider before creating a new virtual machine?", options:["Monitor resolution","Adequate RAM, CPU, and storage on the host","Keyboard layout","Printer driver"], correct:1},
+      {q:"Which of these is a benefit of cloud file synchronization services for end users?", options:["Guaranteed zero downtime forever","Access to files across multiple devices","Eliminates need for any local storage","Automatically upgrades hardware"], correct:1},
+      {q:"What does 'elasticity' mean in the context of cloud computing?", options:["Data is always encrypted","Resources can scale up or down based on demand","Servers never require maintenance","All services are free"], correct:1},
+    ]
+  },
+];
+
+const BOSS = {
+  id:"boss", name:"Boss: The Ticket Queue Lich", icon:"👑", monster:"The Ticket Queue Lich",
+  image:"the-ticket-queue-lich.png",
+  questions:[
+    {q:"BOSS PHASE 1: A user reports their PC randomly shuts down under heavy load. Multimeter shows voltages fluctuating under stress. What do you check next?", options:["The power supply","The mouse","The keyboard driver","The desktop wallpaper"], correct:0},
+    {q:"BOSS PHASE 2: After replacing the PSU, the system boots but has no network connectivity, though the NIC light is on. What's next in your troubleshooting order?", options:["Reinstall the OS immediately","Check IP configuration and cable/switch port","Replace the motherboard","Replace the monitor"], correct:1},
+    {q:"BOSS PHASE 3: IP config is correct and the cable tests fine, but only THIS device can't reach the internet while others on the same switch can. What's the most efficient next step?", options:["Swap the switch port and patch cable, then retest","Reformat the drive","Buy a new router","Ignore it, it will resolve itself"], correct:0},
+  ]
+};
+
+const CLASSES = [
+  {id:"tech", name:"Field Tech", icon:"🔧"},
+  {id:"mage", name:"Network Mage", icon:"🧙"},
+  {id:"cleric", name:"Cloud Cleric", icon:"☁️"},
+  {id:"rogue", name:"Help Desk Rogue", icon:"🗡️"},
+];
+
+/* ============================================================
+   SOUND ENGINE — pure Web Audio API, no audio files
+   ============================================================ */
+let audioCtx = null;
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, duration=0.15, type='sine', delay=0, gainVal=0.18){
+  try{
+    const ctx = getCtx();
+    const start = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(gainVal, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + duration + 0.02);
+  }catch(e){ /* audio not available yet (needs a user gesture) — safe to ignore */ }
+}
+function sfxLockIn(){ tone(440, 0.08, 'square', 0, 0.12); }
+function sfxQuestionStart(){ tone(294, 0.15, 'triangle'); tone(392, 0.15, 'triangle', 0.08); }
+function sfxHit(){ tone(659, 0.12, 'sine'); tone(880, 0.15, 'sine', 0.1); tone(1109, 0.18, 'sine', 0.2); }
+function sfxMiss(){ tone(220, 0.25, 'sawtooth', 0, 0.14); tone(165, 0.3, 'sawtooth', 0.1, 0.14); }
+function sfxRoomCleared(){ tone(523, 0.15, 'triangle'); tone(659, 0.15, 'triangle', 0.15); tone(784, 0.28, 'triangle', 0.3); }
+function sfxVictory(){ [523,659,784,1047].forEach((f,i)=> tone(f, 0.32, 'triangle', i*0.18)); }
+
+/* Tracks the last state transition we already played a sound for,
+   so the same cue doesn't replay every time Firebase pushes a value. */
+let lastSoundKey = null;
+let lastKnownMonsterHP = null;
+let lastKnownRoomIndex = null;
+function maybePlayTransitionSound(state){
+  if(!state) return;
+  const key = state.status + "|" + state.roomIndex + "|" + state.questionIndex;
+  if(key === lastSoundKey){
+    lastKnownMonsterHP = state.monsterHP;
+    lastKnownRoomIndex = state.roomIndex;
+    return;
+  }
+  if(state.status === "question"){
+    if(state.questionIndex === 0 && lastKnownRoomIndex !== state.roomIndex){
+      sfxRoomCleared();
+    } else {
+      sfxQuestionStart();
+    }
+  } else if(state.status === "reveal"){
+    const hitLanded = lastKnownMonsterHP !== null && state.monsterHP < lastKnownMonsterHP;
+    if(hitLanded) sfxHit(); else sfxMiss();
+  } else if(state.status === "end"){
+    sfxVictory();
+  }
+  lastSoundKey = key;
+  lastKnownMonsterHP = state.monsterHP;
+  lastKnownRoomIndex = state.roomIndex;
+}
+
+const SHAPES = ["▲","◆","●","■"];
+const QUESTION_TIME = 20; // seconds
+const BASE_DAMAGE = 100;
+const MONSTER_HP_PER_Q = 100; // total monster HP = questions.length * this
+
+/* ============================================================
+   STATE / ROUTING
+   ============================================================ */
+let view = "menu";
+let roomCode = null;
+let playerId = null;
+let playerName = "";
+let playerClass = null;
+let localTimer = null;
+let timeLeft = QUESTION_TIME;
+let hasAnsweredThisQuestion = false;
+let gameState = null; // synced from Firebase for host & player
+
+function genRoomCode(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for(let i=0;i<4;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+const app = document.getElementById("app");
+function render(){ app.innerHTML = ""; VIEWS[view](); }
+
+/* ============================================================
+   HOST FLOW
+   ============================================================ */
+function allRoomsWithBoss(){ return [...ROOMS, BOSS]; }
+
+async function hostCreateRoom(){
+  roomCode = genRoomCode();
+  const initialState = {
+    status: "lobby",
+    roomIndex: 0,
+    questionIndex: 0,
+    partyHP: 500,
+    monsterHP: allRoomsWithBoss()[0].questions.length * MONSTER_HP_PER_Q,
+    questionStartedAt: null,
+    players: {}
+  };
+  await db.ref("dungeonCrawl/" + roomCode).set(initialState);
+  listenToRoom();
+  view = "host-lobby";
+  render();
+}
+
+function listenToRoom(){
+  db.ref("dungeonCrawl/" + roomCode).on("value", (snap)=>{
+    gameState = snap.val();
+    if(!gameState) return;
+    maybePlayTransitionSound(gameState);
+    if(view.startsWith("host")) render();
+    if(view.startsWith("player")) renderPlayerFromState();
+  });
+}
+
+async function hostStartGame(){
+  await db.ref("dungeonCrawl/"+roomCode).update({status:"question", questionIndex:0, questionStartedAt: Date.now()});
+}
+
+async function hostAdvance(){
+  const state = gameState;
+  const room = allRoomsWithBoss()[state.roomIndex];
+  const isLastQInRoom = state.questionIndex >= room.questions.length - 1;
+
+  if(state.monsterHP <= 0 || isLastQInRoom){
+    // room cleared or ran out of questions -> next room
+    const isLastRoom = state.roomIndex >= allRoomsWithBoss().length - 1;
+    if(isLastRoom){
+      await db.ref("dungeonCrawl/"+roomCode).update({status:"end"});
+      return;
+    }
+    const nextRoomIdx = state.roomIndex + 1;
+    const nextRoom = allRoomsWithBoss()[nextRoomIdx];
+    await db.ref("dungeonCrawl/"+roomCode).update({
+      status:"question",
+      roomIndex: nextRoomIdx,
+      questionIndex: 0,
+      monsterHP: nextRoom.questions.length * MONSTER_HP_PER_Q,
+      partyHP: Math.min(500, state.partyHP + 150),
+      questionStartedAt: Date.now()
+    });
+  } else {
+    await db.ref("dungeonCrawl/"+roomCode).update({
+      status:"question",
+      questionIndex: state.questionIndex + 1,
+      questionStartedAt: Date.now()
+    });
+  }
+}
+
+async function hostRevealAndScore(){
+  const state = gameState;
+  const room = allRoomsWithBoss()[state.roomIndex];
+  const q = room.questions[state.questionIndex];
+  const players = state.players || {};
+  const playerIds = Object.keys(players);
+  const answered = playerIds.filter(id => players[id].lastAnswer && players[id].lastAnswer.qIndex === state.questionIndex);
+  const correctCount = answered.filter(id => players[id].lastAnswer.choice === q.correct).length;
+  const total = playerIds.length || 1;
+  const pctCorrect = correctCount / total;
+
+  // Each question is worth one HP-pool "hit" on the monster. If the majority
+  // of the party got it right, the hit lands; otherwise the monster shrugs it off.
+  const dealt = pctCorrect >= 0.5 ? MONSTER_HP_PER_Q : Math.round(MONSTER_HP_PER_Q * pctCorrect);
+  const partyLoss = correctCount === 0 ? 40 : (answered.length - correctCount) * 10;
+
+  const updates = {};
+  updates["monsterHP"] = Math.max(0, state.monsterHP - dealt);
+  updates["partyHP"] = Math.max(0, state.partyHP - partyLoss);
+  updates["status"] = "reveal";
+
+  // update player scores
+  playerIds.forEach(id=>{
+    const p = players[id];
+    const ans = p.lastAnswer;
+    if(ans && ans.qIndex === state.questionIndex && ans.choice === q.correct){
+      const speedBonus = Math.round(50 * (ans.timeLeft / QUESTION_TIME));
+      updates["players/"+id+"/score"] = (p.score||0) + 100 + speedBonus;
+      updates["players/"+id+"/correctCount"] = (p.correctCount||0) + 1;
+    }
+  });
+
+  await db.ref("dungeonCrawl/"+roomCode).update(updates);
+}
+
+/* ============================================================
+   PLAYER FLOW
+   ============================================================ */
+async function playerJoin(code, name){
+  const snap = await db.ref("dungeonCrawl/"+code).once("value");
+  if(!snap.exists()){
+    alert("No dungeon found with that code. Double check it with your DM.");
+    return false;
+  }
+  roomCode = code.toUpperCase();
+  playerId = "p_" + Math.random().toString(36).slice(2,10);
+  playerName = name;
+  await db.ref(`dungeonCrawl/${roomCode}/players/${playerId}`).set({
+    name: name, class: null, score:0, correctCount:0, hp:100, lastAnswer:null
+  });
+  listenToRoom();
+  return true;
+}
+
+async function playerPickClass(cls){
+  playerClass = cls;
+  await db.ref(`dungeonCrawl/${roomCode}/players/${playerId}/class`).set(cls);
+  view = "player-game";
+  render();
+}
+
+async function playerAnswer(choiceIdx){
+  if(hasAnsweredThisQuestion) return;
+  hasAnsweredThisQuestion = true;
+  sfxLockIn();
+  await db.ref(`dungeonCrawl/${roomCode}/players/${playerId}/lastAnswer`).set({
+    qIndex: gameState.questionIndex,
+    choice: choiceIdx,
+    timeLeft: timeLeft
+  });
+  render();
+}
+
+function renderPlayerFromState(){
+  if(!gameState) return;
+  if(gameState.status === "question" && view === "player-game"){
+    const elapsed = (Date.now() - gameState.questionStartedAt)/1000;
+    timeLeft = Math.max(0, Math.round(QUESTION_TIME - elapsed));
+    const myLast = gameState.players[playerId] && gameState.players[playerId].lastAnswer;
+    hasAnsweredThisQuestion = !!(myLast && myLast.qIndex === gameState.questionIndex);
+  }
+  render();
+}
+
+/* ============================================================
+   TIMER (host-driven, purely visual on player side)
+   ============================================================ */
+function startLocalTimerTick(){
+  if(localTimer) clearInterval(localTimer);
+  localTimer = setInterval(()=>{
+    if(gameState && gameState.status === "question"){
+      const elapsed = (Date.now() - gameState.questionStartedAt)/1000;
+      timeLeft = Math.max(0, Math.round(QUESTION_TIME - elapsed));
+      if(view === "host-game" || view === "player-game") render();
+    }
+  }, 1000);
+}
+startLocalTimerTick();
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+const VIEWS = {
+
+  menu(){
+    app.innerHTML = `
+      <div class="center">
+        <div class="card">
+          <h1 class="torch-title">⚔️ Core 1 Dungeon Crawl</h1>
+          <div class="subtitle">A CompTIA A+ 220-1201 review raid</div>
+          <button class="btn btn-gold" id="hostBtn">Start as Dungeon Master (host screen)</button>
+          <button class="btn" id="joinBtn">Join as a Player (phone)</button>
+        </div>
+      </div>`;
+    document.getElementById("hostBtn").onclick = ()=>{ hostCreateRoom(); };
+    document.getElementById("joinBtn").onclick = ()=>{ view="player-join"; render(); };
+  },
+
+  "host-lobby"(){
+    const players = (gameState && gameState.players) ? Object.values(gameState.players) : [];
+    app.innerHTML = `
+      <div class="host-wrap">
+        <div class="center" style="min-height:auto;padding-top:40px;">
+          <h1 class="torch-title">The dungeon awaits</h1>
+          <div class="room-code-banner">Students join at your app URL and enter code:</div>
+          <div class="room-code">${roomCode}</div>
+          <div class="lobby-list">
+            ${players.map(p=>`<div class="lobby-chip">${classIcon(p.class)} ${escapeHtml(p.name)}</div>`).join("") || '<div class="small-note">Waiting for adventurers to join...</div>'}
+          </div>
+          <div style="margin-top:36px;width:280px;">
+            <button class="btn btn-gold" id="startBtn" ${players.length===0?"disabled":""}>Begin the Crawl (${players.length} joined)</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById("startBtn").onclick = ()=> hostStartGame();
+  },
+
+  "host-game"(){
+    if(!gameState){ app.innerHTML = "<div class='center'>Loading...</div>"; return; }
+    const rooms = allRoomsWithBoss();
+    const room = rooms[gameState.roomIndex];
+    const q = room.questions[gameState.questionIndex];
+    const players = gameState.players || {};
+    const answeredCount = Object.values(players).filter(p=>p.lastAnswer && p.lastAnswer.qIndex===gameState.questionIndex).length;
+
+    app.innerHTML = `
+      <div class="host-wrap">
+        <div class="corridor">
+          ${rooms.map((r,i)=>`
+            <div class="door ${i===gameState.roomIndex?'current':(i<gameState.roomIndex?'cleared':'')}">
+              <span class="torch-flame">🔥</span>
+              <span class="door-icon">${r.icon}</span>
+              <div class="door-label">${r.name}</div>
+            </div>`).join("")}
+        </div>
+
+        <div class="battle-row">
+          <div class="stat-panel">
+            <div>🛡️ Party HP</div>
+            <div class="bar-track"><div class="bar-fill hp-party" style="width:${Math.max(0,gameState.partyHP)/500*100}%"></div></div>
+          </div>
+          <div class="stat-panel">
+            <img class="monster-portrait" src="${encodeURI(room.image)}" alt="${room.monster}" onerror="this.style.display='none'">
+            <div class="monster-name">${room.monster}</div>
+            <div class="bar-track"><div class="bar-fill hp-monster" style="width:${Math.max(0,gameState.monsterHP)/(room.questions.length*MONSTER_HP_PER_Q)*100}%"></div></div>
+          </div>
+        </div>
+
+        <div class="question-panel">
+          ${gameState.status==="question" ? `<div class="timer">${timeLeft}s</div>` : ""}
+          <div class="question-text">${q.q}</div>
+          <div class="options-grid">
+            ${q.options.map((o,i)=>`
+              <div class="opt opt-${i}">
+                <span class="opt-shape">${SHAPES[i]}</span>${o}
+                ${gameState.status==="reveal" && i===q.correct ? " ✅ CORRECT" : ""}
+              </div>`).join("")}
+          </div>
+          <div class="answer-count">${answeredCount} / ${Object.keys(players).length} adventurers have answered</div>
+          <div style="margin-top:24px;">
+            ${gameState.status==="question" ? `<button class="btn btn-gold" id="revealBtn" style="max-width:260px;margin:0 auto;">Reveal Answer</button>` : ""}
+            ${gameState.status==="reveal" ? `<button class="btn btn-gold" id="nextBtn" style="max-width:260px;margin:0 auto;">Next</button>` : ""}
+          </div>
+        </div>
+      </div>`;
+
+    const revealBtn = document.getElementById("revealBtn");
+    if(revealBtn) revealBtn.onclick = ()=> hostRevealAndScore();
+    const nextBtn = document.getElementById("nextBtn");
+    if(nextBtn) nextBtn.onclick = ()=> hostAdvance();
+
+    if(gameState.status === "end" ) { view="host-end"; render(); }
+  },
+
+  "host-end"(){
+    const players = Object.values(gameState.players||{}).sort((a,b)=>(b.score||0)-(a.score||0));
+    app.innerHTML = `
+      <div class="host-wrap">
+        <div class="center" style="min-height:auto;padding-top:40px;">
+          <h1 class="torch-title">👑 The Ticket Queue Lich falls</h1>
+          <div class="subtitle">Final standings</div>
+          <div class="card" style="max-width:500px;">
+            ${players.map((p,i)=>`
+              <div class="leaderboard-row ${i===0?'rank-1':''}">
+                <span>${i+1}. ${classIcon(p.class)} ${escapeHtml(p.name)}</span>
+                <span>${p.score||0} pts</span>
+              </div>`).join("")}
+          </div>
+        </div>
+      </div>`;
+  },
+
+  "player-join"(){
+    app.innerHTML = `
+      <div class="center">
+        <div class="card">
+          <h1 class="torch-title">Join the Party</h1>
+          <div class="subtitle">Enter the code from the big screen</div>
+          <input type="text" id="codeInput" maxlength="4" placeholder="CODE">
+          <input type="text" id="nameInput" placeholder="Your name" style="text-transform:none;letter-spacing:normal;">
+          <button class="btn btn-gold" id="joinSubmit">Enter the Dungeon</button>
+          <div class="small-note" id="joinError"></div>
+        </div>
+      </div>`;
+    document.getElementById("joinSubmit").onclick = async ()=>{
+      const code = document.getElementById("codeInput").value.trim();
+      const name = document.getElementById("nameInput").value.trim() || "Adventurer";
+      if(code.length !== 4){ document.getElementById("joinError").textContent = "Code should be 4 characters."; return; }
+      const ok = await playerJoin(code, name);
+      if(ok){ view = "player-class"; render(); }
+    };
+  },
+
+  "player-class"(){
+    app.innerHTML = `
+      <div class="center">
+        <div class="card">
+          <h1 class="torch-title">Choose Your Class</h1>
+          <div class="class-grid">
+            ${CLASSES.map(c=>`
+              <div class="class-card" data-id="${c.id}">
+                <span class="class-icon">${c.icon}</span>
+                <div class="class-name">${c.name}</div>
+              </div>`).join("")}
+          </div>
+          <div class="small-note">Cosmetic only — pick whatever fits your vibe.</div>
+        </div>
+      </div>`;
+    document.querySelectorAll(".class-card").forEach(el=>{
+      el.onclick = ()=> playerPickClass(el.dataset.id);
+    });
+  },
+
+  "player-game"(){
+    if(!gameState){ app.innerHTML = "<div class='center'>Loading...</div>"; return; }
+    const rooms = allRoomsWithBoss();
+    const room = rooms[gameState.roomIndex];
+    const q = room.questions[gameState.questionIndex];
+    const me = gameState.players[playerId] || {};
+
+    if(gameState.status === "lobby"){
+      app.innerHTML = `<div class="center"><div class="card">
+        <h1 class="torch-title">${classIcon(me.class)} ${escapeHtml(me.name)}</h1>
+        <div class="waiting-msg">Waiting for the Dungeon Master to begin the crawl...</div>
+      </div></div>`;
+      return;
+    }
+
+    if(gameState.status === "end"){
+      view = "player-end"; render(); return;
+    }
+
+    let body = "";
+    if(gameState.status === "question"){
+      if(hasAnsweredThisQuestion){
+        body = `<div class="waiting-msg">Answer locked in. Watch the big screen...</div>`;
+      } else {
+        body = `
+          <div class="shape-grid">
+            ${q.options.map((o,i)=>`<button class="shape-btn opt-${i}" data-i="${i}">${SHAPES[i]}</button>`).join("")}
+          </div>`;
+      }
+    } else if(gameState.status === "reveal"){
+      const myAns = me.lastAnswer;
+      const gotIt = myAns && myAns.qIndex===gameState.questionIndex && myAns.choice===q.correct;
+      const answered = myAns && myAns.qIndex === gameState.questionIndex;
+      body = answered
+        ? `<div class="result-banner ${gotIt?'result-correct':'result-wrong'}">${gotIt ? "Hit landed! ⚔️" : "Missed — check the big screen"}</div>`
+        : `<div class="result-banner result-wrong">Time's up — no answer locked in</div>`;
+    }
+
+    app.innerHTML = `
+      <div class="player-wrap">
+        <div class="player-header">
+          <span>${classIcon(me.class)} ${escapeHtml(me.name)}</span>
+          <span class="player-hp">Score: ${me.score||0}</span>
+        </div>
+        ${body}
+      </div>`;
+
+    if(gameState.status === "question" && !hasAnsweredThisQuestion){
+      document.querySelectorAll(".shape-btn").forEach(btn=>{
+        btn.onclick = ()=> playerAnswer(parseInt(btn.dataset.i));
+      });
+    }
+  },
+
+  "player-end"(){
+    const players = Object.values(gameState.players||{}).sort((a,b)=>(b.score||0)-(a.score||0));
+    const myRank = players.findIndex(p=>p.name===playerName) + 1;
+    app.innerHTML = `
+      <div class="center">
+        <div class="card">
+          <h1 class="torch-title">👑 Victory</h1>
+          <div class="subtitle">The Ticket Queue Lich has been defeated</div>
+          <div class="card" style="background:var(--panel-2);">
+            ${players.map((p,i)=>`
+              <div class="leaderboard-row ${i===0?'rank-1':''}">
+                <span>${i+1}. ${classIcon(p.class)} ${escapeHtml(p.name)}</span>
+                <span>${p.score||0} pts</span>
+              </div>`).join("")}
+          </div>
+        </div>
+      </div>`;
+  }
+};
+
+function classIcon(id){
+  const c = CLASSES.find(c=>c.id===id);
+  return c ? c.icon : "🧝";
+}
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+render();
+</script>
+</body>
+</html>
