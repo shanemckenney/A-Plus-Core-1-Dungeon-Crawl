@@ -421,10 +421,12 @@ async function hostRevealAndScore(){
   const total = playerIds.length || 1;
   const pctCorrect = correctCount / total;
 
-  // Each question is worth one HP-pool "hit" on the monster. If the majority
-  // of the party got it right, the hit lands; otherwise the monster shrugs it off.
-  const dealt = pctCorrect >= 0.5 ? MONSTER_HP_PER_Q : Math.round(MONSTER_HP_PER_Q * pctCorrect);
-  const partyLoss = correctCount === 0 ? 40 : (answered.length - correctCount) * 10;
+  // Fixed-size hit per question, scales to any class size since it only depends on
+  // the percentage of the party that got it right — never on raw headcounts.
+  const HIT_AMOUNT = MONSTER_HP_PER_Q;
+  const partyWins = pctCorrect >= 0.5;
+  const dealt = partyWins ? HIT_AMOUNT : 0;
+  const partyLoss = partyWins ? 0 : HIT_AMOUNT;
 
   const updates = {};
   updates["monsterHP"] = Math.max(0, state.monsterHP - dealt);
